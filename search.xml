@@ -4,6 +4,31 @@
   
     
     <entry>
+      <title>Redis学习</title>
+      <link href="/posts/8434e219.html"/>
+      <url>/posts/8434e219.html</url>
+      
+        <content type="html"><![CDATA[<h1>Redis</h1><h2 id="Redis是什么？">Redis是什么？</h2><ol><li>Redis是用c语言开发的一个开源的高性能键值对(key-value)数据库，即Nosql数据库，它通过提供多种键值数据类型来适应不同场景下的存储需求。</li></ol><h2 id="1-Redis支持的键值数据类型">1.Redis支持的键值数据类型</h2><ol><li>字符串类型</li><li>散列类型(对应java中的Object，它主要用来存储对象)</li><li>列表类型(List)</li><li>集合类型(Set)</li><li>有序集合类型(TreeSet)</li></ol><h2 id="1-2-redis的应用场景">1.2 redis的应用场景</h2><ol><li>缓存(数据查询、短连接、新闻内容、商品内容等)。(最多使用，也是作为减轻数据库压力使用。中间件)</li><li>分布式集群架构中的session分离。</li><li>聊天室的在线好友列表。</li><li>任务队列。(秒杀、抢购、12306等，<s>但是有MQ</s>)</li><li>应用排行榜</li><li>网站访问统计</li><li>数据过期处理(可以精确到毫秒)</li></ol><h2 id="1-3Redis特性">1.3Redis特性</h2><ol><li>性能极高：读写速度高，可以达到11w次/s</li><li>简单稳定: Redis源码很少</li><li>持久化：Redis内存中的数据可以进行持久化</li><li>高可用集群：Redis提供了高可用的主从集群功能，可以确保系统的安全性。</li><li>丰富的数据类型:String、List、Set、Zset、Hash、Bitmap、HyperLogLog、Geospatial</li><li>强大的功能:Redis提供了数据过期功能、发布/订阅功能、简单事务功能，还支持lua脚本扩展功能</li><li>客户端语言广泛:Redis提供了简单的TCP通信协议，编程语言可以方便地接入Redis，开源社区丰富</li><li>支持ACL权限控制:从Redis6开始引入了ACL模块，可以为不同用户定制不同的用户权限。(ACL=访问控制列表的缩写，是一种细粒度的权限管理策略，可以针对人员用户与组进行权限控制。目前大多数Unix系统和Linux版本已经支持ACL)</li><li>支持多线程IO模型:Redis之前版本采用的是单线程模型，在6.0之后支持多线程模型</li></ol><h2 id="1-4Redis的IO模型">1.4Redis的IO模型</h2><ol><li>Redis处理客户端请求所采用的处理架构是IO模型</li></ol><h3 id="1-4-1-Redis-单线程-vs-多线程-I-O-模型对比">1.4.1 Redis 单线程 vs 多线程 I/O 模型对比</h3><table><thead><tr><th>对比维度</th><th>单线程模型（Redis ≤5.x）</th><th>多线程模型（Redis 6.0+）</th></tr></thead><tbody><tr><td><strong>线程分工</strong></td><td>└─ 单线程处理所有任务：<br>   - 监听I/O<br>   - 解析请求<br>   - 执行命令<br>   - 返回响应</td><td>└─ <strong>主线程</strong>：命令执行（仍单线程）<br> └─ <strong>I/O线程</strong>（可配置）：<br>   - 读取请求数据<br>   - 写回响应数据</td></tr><tr><td><strong>并发性能</strong></td><td>🔄 依赖单核CPU，高吞吐但连接数暴增时可能瓶颈</td><td>📈 多线程分担网络I/O，提升高并发下的吞吐量</td></tr><tr><td><strong>数据一致性</strong></td><td>✅ 天然原子性，无锁冲突</td><td>✅ 命令执行保持单线程，避免竞争条件</td></tr><tr><td><strong>系统调用优化</strong></td><td>⏳ 单线程顺序调用 <code>epoll_wait</code></td><td>🚀 多线程并行处理 <code>read()</code>/<code>write()</code></td></tr><tr><td><strong>典型配置</strong></td><td><code>io-threads-disable</code> (默认)</td><td><code>io-threads 4</code> (需手动开启)</td></tr><tr><td><strong>适用场景</strong></td><td>- 连接数少或命令简单<br>- CPU非瓶颈场景</td><td>- 高并发连接（1W+）<br>- 网络延迟敏感场景</td></tr></tbody></table><h4 id="1-4-2流程图对比">1.4.2<strong>流程图对比</strong></h4><h5 id="单线程模型（5-x）">单线程模型（5.x）</h5><p>Client Requests<br>│<br>▼<br>┌───────────────┐<br>│  单线程主循环   │<br>│  (epoll_wait)  │<br>└──────┬───────┬┘<br>│       │<br>▼       ▼<br>读取请求数据  执行命令<br>│       │<br>└───┬───┘<br>▼<br>返回响应</p><h5 id="多线程模型（6-0-）">多线程模型（6.0+）</h5><p>Client Requests<br>│<br>▼<br>┌───────────────┐    ┌───────────────┐<br>│  主线程        │    │  I/O线程池     │<br>│ (epoll_wait)  │←──→│ (read/write)  │<br>└──────┬───────┬┘    └───────────────┘<br>│       │<br>▼       ▼<br>解析请求  执行命令 (单线程)<br>│       │<br>└───┬───┘<br>▼<br>返回响应 (由I/O线程写回)</p><h3 id="1-4-3-IO多路复用技术">1.4.3 IO多路复用技术</h3><ol><li><p>为什么需要多路复用？</p><ul><li><strong>阻塞 I/O</strong>：每次只能处理一个连接，线程会阻塞等待数据（资源浪费）。</li><li><strong>多线程/多进程</strong>：虽然能并发，但上下文切换和锁竞争开销大（如 Apache 早期模型）。</li></ul></li><li><p>多路复用通过 <strong>“事件通知”机制</strong> 解决这些问题：</p><ul><li><p><strong>单线程监控多个 I/O 流</strong>，无需为每个连接创建线程/进程。</p></li><li><p><strong>非阻塞</strong>：未就绪的连接不会阻塞程序运行。</p></li></ul></li><li><p><strong>1.4.3.2. 核心系统调用</strong></p><table><thead><tr><th>系统调用</th><th>适用平台</th><th>特点</th></tr></thead><tbody><tr><td>select</td><td>跨平台</td><td>线性扫描所有描述符（O(n)），性能差，最多支持 1024 个连接（需手动扩展）。</td></tr><tr><td>poll</td><td>Linux/Unix</td><td>改进的 select，无连接数限制，但仍需遍历所有描述符。</td></tr><tr><td>epoll</td><td>Linux</td><td>事件驱动（O(1)），支持百万级连接，采用回调机制（就绪列表）。</td></tr><tr><td>kqueue</td><td>macOS/FreeBSD</td><td>类似 epoll，高性能事件通知机制。</td></tr></tbody></table></li></ol><h3 id="1-4-4总结">1.4.4总结</h3><ol><li><strong>单线程</strong>：所有任务串行执行，简单但受限于单核性能。</li><li><strong>多线程</strong>：仅网络I/O多线程化，命令执行仍单线程，兼顾性能与安全性。</li><li>选择建议<ul><li>若连接数&lt;1W或命令轻量，单线程足够；</li><li>若高并发或网络延迟敏感，启用多线程I/O（需配置<code>io-threads</code>）。</li></ul></li></ol><h2 id="1-5-安装Redis步骤">1.5 安装Redis步骤</h2><h3 id="1-5-1-安装vmware虚拟机">1.5.1 安装vmware虚拟机</h3><p>网上有下载教程</p><h3 id="1-5-2-下载Ubuntu的ios镜像文件">1.5.2 下载Ubuntu的ios镜像文件</h3><p>这个在网络或阿里云一些镜像站可以找到</p><h3 id="1-5-3-安装Redis">1.5.3 安装Redis</h3><h5 id="1-5-3-1安装apt管理器">1.5.3.1安装apt管理器</h5><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> apt update</span><br></pre></td></tr></table></figure><h5 id="1-5-3-2安装Redis服务">1.5.3.2安装Redis服务</h5><figure class="highlight axapta"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo apt install redis-<span class="keyword">server</span></span><br></pre></td></tr></table></figure><h5 id="1-5-3-3安装客户端">1.5.3.3安装客户端</h5><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">sudo</span> apt install redis-tools</span><br></pre></td></tr></table></figure><h5 id="1-5-3-4进入命令行">1.5.3.4进入命令行</h5><figure class="highlight avrasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-<span class="keyword">cli</span></span><br></pre></td></tr></table></figure><p>然后就可以使用了</p><h2 id="1-6-使用场景">1.6 使用场景</h2><p>使用场景可以参考这篇文章</p><p>[]: <a href="https://blog.csdn.net/baidu_38493460/article/details/130500729?fromshare=blogdetail&amp;sharetype=blogdetail&amp;sharerId=130500729&amp;sharerefer=PC&amp;sharesource=m0_7405128">https://blog.csdn.net/baidu_38493460/article/details/130500729?fromshare=blogdetail&amp;sharetype=blogdetail&amp;sharerId=130500729&amp;sharerefer=PC&amp;sharesource=m0_7405128</a></p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 学习随笔 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> Redis </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>Linux学习</title>
       <link href="/posts/deb5175a.html"/>
       <url>/posts/deb5175a.html</url>
