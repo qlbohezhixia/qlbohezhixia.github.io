@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>清凉薄荷之夏🍋‍🟩</title>
+  <title>清凉薄荷之夏🍋</title>
   
   
   <link href="https://example.com/atom.xml" rel="self"/>
@@ -10,7 +10,7 @@
   <id>https://example.com/</id>
   
   <author>
-    <name>清凉薄荷之夏🍋‍🟩</name>
+    <name>清凉薄荷之夏🍋</name>
     
   </author>
   
